@@ -1,0 +1,32 @@
+[package]
+name = "ferrum-movegen"
+version = "0.1.0"
+edition = "2021"
+description = "High-performance chess move generator with magic bitboards"
+license = "MIT"
+
+[lib]
+name = "movegen"
+path = "src/lib.rs"
+
+[dependencies]
+
+[dev-dependencies]
+criterion = "0.5"
+rand = "0.8"
+
+[features]
+default = ["std"]
+std = []
+pext = []  # Enable BMI2 PEXT sliding attacks
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+opt-level = 3
+debug = false
+strip = true
+
+[profile.release.build-override]
+opt-level = 3
