@@ -19,6 +19,7 @@ rand = "0.8"
 default = ["std"]
 std = []
 pext = []  # Enable BMI2 PEXT sliding attacks
+simd = []  # Enable AVX2 SIMD bitboard operations
 
 [profile.release]
 lto = "fat"

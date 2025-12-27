@@ -7,7 +7,13 @@ mod iter;
 mod ops;
 mod display;
 
+#[cfg(feature = "simd")]
+pub mod simd;
+
 pub use iter::BitIterator;
+
+#[cfg(feature = "simd")]
+pub use simd::Bitboard4;
 
 use core::fmt;
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, Shr};
