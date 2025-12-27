@@ -12,13 +12,16 @@
 
 ## Performance
 
-Tested on [User Hardware Specification, e.g. Ryzen 9 / M1 Max]:
 
-| Metric | Speed |
-|--------|-------|
-| Perft 6 | **468 Mnps** |
+| Position | Depth | Nodes | NPS |
+|----------|-------|-------|-----|
+| Start Position | 7 | 3,195,901,860 | **343 Mnps** |
+| Kiwipete | 6 | 8,031,647,685 | **434 Mnps** |
+| Position 3 | 8 | 3,009,794,393 | **177 Mnps** |
+| Position 4 | 6 | 706,045,033 | **400 Mnps** |
+| Position 5 | 5 | 89,941,194 | **386 Mnps** |
 
-*Note: Benchmarked with `target-cpu=native` and `pext` feature enabled.*
+*Benchmarks run on [User Hardware] with `target-cpu=native`.*
 
 ## Usage
 
@@ -62,4 +65,4 @@ RUSTFLAGS="-C target-cpu=native" cargo build --release --features pext
 
 ## License
 
-MIT
+Apache 2.0
