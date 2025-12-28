@@ -21,7 +21,7 @@
 | Position 4 | 6 | 706,045,033 | **400 Mnps** |
 | Position 5 | 5 | 89,941,194 | **386 Mnps** |
 
-*Benchmarks run on [User Hardware] with `target-cpu=native`.*
+*Benchmarks run with `target-cpu=native`.*
 
 ## Usage
 
