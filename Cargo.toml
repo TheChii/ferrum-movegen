@@ -1,5 +1,6 @@
 [package]
 name = "ferrum-movegen"
+repository = "https://github.com/TheChii/ferrum-movegen"
 version = "0.1.0"
 edition = "2021"
 description = "High-performance chess move generator with magic bitboards"
