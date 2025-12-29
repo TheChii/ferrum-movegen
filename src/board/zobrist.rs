@@ -18,7 +18,7 @@ impl Zobrist {
     /// Generate Zobrist keys using a simple PRNG.
     const fn new() -> Zobrist {
         let mut piece_squares = [[[0u64; 64]; 2]; 6];
-        let mut side = 0u64;
+        let side;
         let mut castling = [0u64; 16];
         let mut ep_file = [0u64; 8];
         

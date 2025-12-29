@@ -1,6 +1,6 @@
 //! Pawn move generation.
 
-use super::{Move, MoveFlag, MoveList, MoveSink};
+use super::{Move, MoveFlag, MoveSink};
 use crate::bitboard::Bitboard;
 use crate::board::Board;
 use crate::types::{Color, Piece, Square, Rank};
