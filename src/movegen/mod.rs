@@ -56,6 +56,72 @@ impl Board {
         self.generate_king_moves(moves);
     }
 
+    /// Generate only capture moves (staged generation).
+    pub fn generate_captures(&self) -> MoveList {
+        let mut moves = MoveList::new();
+        if self.checkers().more_than_one() {
+            self.generate_king_moves(&mut moves);
+        } else if self.checkers().any() {
+            self.generate_evasions(&mut moves);
+        } else {
+            self.generate_captures_impl(&mut moves);
+        }
+        // Filter to only captures
+        let mut result = MoveList::new();
+        for m in moves.iter() {
+            if m.is_capture() {
+                result.push(m);
+            }
+        }
+        result
+    }
+
+    /// Generate only quiet moves (non-captures, staged generation).
+    pub fn generate_quiets(&self) -> MoveList {
+        let mut moves = MoveList::new();
+        if self.checkers().more_than_one() {
+            self.generate_king_moves(&mut moves);
+        } else if self.checkers().any() {
+            self.generate_evasions(&mut moves);
+        } else {
+            self.generate_quiets_impl(&mut moves);
+        }
+        // Filter to only quiets
+        let mut result = MoveList::new();
+        for m in moves.iter() {
+            if !m.is_capture() {
+                result.push(m);
+            }
+        }
+        result
+    }
+
+    /// Internal: generate captures only.
+    fn generate_captures_impl<M: MoveSink>(&self, moves: &mut M) {
+        let pinned = self.compute_pinned();
+        let target = self.them(); // Only enemy squares
+        
+        self.generate_pawn_moves(moves, target, pinned);
+        self.generate_knight_moves(moves, target, pinned);
+        self.generate_bishop_moves(moves, target, pinned);
+        self.generate_rook_moves(moves, target, pinned);
+        self.generate_queen_moves(moves, target, pinned);
+        self.generate_king_moves(moves);
+    }
+
+    /// Internal: generate quiets only.
+    fn generate_quiets_impl<M: MoveSink>(&self, moves: &mut M) {
+        let pinned = self.compute_pinned();
+        let target = !self.occupied(); // Only empty squares
+        
+        self.generate_pawn_moves(moves, target, pinned);
+        self.generate_knight_moves(moves, target, pinned);
+        self.generate_bishop_moves(moves, target, pinned);
+        self.generate_rook_moves(moves, target, pinned);
+        self.generate_queen_moves(moves, target, pinned);
+        self.generate_king_moves(moves);
+    }
+
     /// Generate moves when in check.
     fn generate_evasions<M: MoveSink>(&self, moves: &mut M) {
         let king_sq = self.king_square(self.turn());
