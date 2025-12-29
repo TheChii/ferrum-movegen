@@ -19,7 +19,7 @@ pub struct UndoInfo {
 
 impl Board {
     /// Make a move and return a new board (copy-make pattern).
-    /// This is faster than make_move/unmake_move for perft and search.
+    /// This is the recommended method for search.
     #[inline]
     pub fn make_move_new(&self, mv: Move) -> Board {
         let mut result = *self;
@@ -33,14 +33,27 @@ impl Board {
         // Find the moving piece
         let piece = self.piece_at(from).map(|(p, _)| p).unwrap_or(Piece::Pawn);
 
-        // Clear en passant
+        // === Zobrist hash updates ===
+        
+        // XOR out old en passant
+        if let Some(ep) = self.ep_square {
+            result.hash ^= ZOBRIST.ep_file(ep.file());
+        }
         result.ep_square = None;
+        
+        // XOR out old castling rights
+        result.hash ^= ZOBRIST.castling(self.castling);
 
         match flag {
             MoveFlag::Quiet => {
+                // Move piece: XOR out from, XOR in to
+                result.hash ^= ZOBRIST.piece_square(piece, us, from);
+                result.hash ^= ZOBRIST.piece_square(piece, us, to);
                 result.move_piece_fast(from, to, piece, us);
             }
             MoveFlag::DoublePawnPush => {
+                result.hash ^= ZOBRIST.piece_square(piece, us, from);
+                result.hash ^= ZOBRIST.piece_square(piece, us, to);
                 result.move_piece_fast(from, to, piece, us);
                 let ep = if us == Color::White {
                     unsafe { Square::from_index_unchecked(to.index() - 8) }
@@ -48,11 +61,17 @@ impl Board {
                     unsafe { Square::from_index_unchecked(to.index() + 8) }
                 };
                 result.ep_square = Some(ep);
+                result.hash ^= ZOBRIST.ep_file(ep.file());
             }
             MoveFlag::Capture => {
+                // Remove captured piece
                 if let Some((cap_piece, _)) = self.piece_at(to) {
+                    result.hash ^= ZOBRIST.piece_square(cap_piece, them, to);
                     result.remove_piece_fast(to, cap_piece, them);
                 }
+                // Move capturing piece
+                result.hash ^= ZOBRIST.piece_square(piece, us, from);
+                result.hash ^= ZOBRIST.piece_square(piece, us, to);
                 result.move_piece_fast(from, to, piece, us);
             }
             MoveFlag::EnPassant => {
@@ -61,46 +80,72 @@ impl Board {
                 } else {
                     unsafe { Square::from_index_unchecked(to.index() + 8) }
                 };
+                // Remove captured pawn
+                result.hash ^= ZOBRIST.piece_square(Piece::Pawn, them, cap_sq);
                 result.remove_piece_fast(cap_sq, Piece::Pawn, them);
+                // Move pawn
+                result.hash ^= ZOBRIST.piece_square(Piece::Pawn, us, from);
+                result.hash ^= ZOBRIST.piece_square(Piece::Pawn, us, to);
                 result.move_piece_fast(from, to, Piece::Pawn, us);
             }
             MoveFlag::KingCastle => {
+                // Move king
+                result.hash ^= ZOBRIST.piece_square(Piece::King, us, from);
+                result.hash ^= ZOBRIST.piece_square(Piece::King, us, to);
                 result.move_piece_fast(from, to, Piece::King, us);
+                // Move rook
                 let (rook_from, rook_to) = if us == Color::White {
                     (Square::H1, Square::F1)
                 } else {
                     (Square::H8, Square::F8)
                 };
+                result.hash ^= ZOBRIST.piece_square(Piece::Rook, us, rook_from);
+                result.hash ^= ZOBRIST.piece_square(Piece::Rook, us, rook_to);
                 result.move_piece_fast(rook_from, rook_to, Piece::Rook, us);
             }
             MoveFlag::QueenCastle => {
+                // Move king
+                result.hash ^= ZOBRIST.piece_square(Piece::King, us, from);
+                result.hash ^= ZOBRIST.piece_square(Piece::King, us, to);
                 result.move_piece_fast(from, to, Piece::King, us);
+                // Move rook
                 let (rook_from, rook_to) = if us == Color::White {
                     (Square::A1, Square::D1)
                 } else {
                     (Square::A8, Square::D8)
                 };
+                result.hash ^= ZOBRIST.piece_square(Piece::Rook, us, rook_from);
+                result.hash ^= ZOBRIST.piece_square(Piece::Rook, us, rook_to);
                 result.move_piece_fast(rook_from, rook_to, Piece::Rook, us);
             }
             _ if flag.is_promotion() => {
                 let promo_piece = flag.promotion_piece().unwrap();
+                // Remove pawn
+                result.hash ^= ZOBRIST.piece_square(Piece::Pawn, us, from);
                 result.remove_piece_fast(from, Piece::Pawn, us);
+                // If capture, remove captured piece
                 if flag.is_capture() {
                     if let Some((cap_piece, _)) = self.piece_at(to) {
+                        result.hash ^= ZOBRIST.piece_square(cap_piece, them, to);
                         result.remove_piece_fast(to, cap_piece, them);
                     }
                 }
+                // Add promoted piece
+                result.hash ^= ZOBRIST.piece_square(promo_piece, us, to);
                 result.add_piece_fast(to, promo_piece, us);
             }
             _ => {}
         }
 
         // Update castling rights
-        result.castling = result.castling.remove(CastleRights::update_mask(from));
-        result.castling = result.castling.remove(CastleRights::update_mask(to));
+        let new_castling = result.castling.remove(CastleRights::update_mask(from))
+                                          .remove(CastleRights::update_mask(to));
+        result.castling = new_castling;
+        result.hash ^= ZOBRIST.castling(new_castling);
 
         // Switch side
         result.turn = them;
+        result.hash ^= ZOBRIST.side();
 
         // Update checkers
         result.update_checkers();
@@ -493,6 +538,28 @@ impl Board {
         self.ep_square = undo.ep_square;
         self.checkers = undo.checkers;
     }
+
+    /// Make a null move (pass the turn without making any move).
+    /// Used for null move pruning in search.
+    /// Returns a new board with side to move switched.
+    #[inline]
+    pub fn make_null_move(&self) -> Board {
+        let mut result = *self;
+        
+        // Clear en passant
+        result.ep_square = None;
+        
+        // Switch side
+        result.turn = !self.turn;
+        
+        // Update hash for side change
+        result.hash ^= ZOBRIST.side();
+        
+        // Recalculate checkers for new side
+        result.update_checkers();
+        
+        result
+    }
 }
 
 #[cfg(test)]
@@ -518,3 +585,4 @@ mod tests {
         assert_eq!(board.hash(), initial_hash);
     }
 }
+
