@@ -102,6 +102,16 @@ impl Board {
         self.hash
     }
 
+    /// Get a pawn structure hash (for correction history).
+    /// This combines info about pawn positions for both sides.
+    #[inline]
+    pub fn pawn_hash(&self) -> u64 {
+        // Simple pawn hash: XOR of pawn bitboard bits with a mixing constant
+        let white_pawns = self.piece_color_bb(Piece::Pawn, Color::White).0;
+        let black_pawns = self.piece_color_bb(Piece::Pawn, Color::Black).0;
+        white_pawns.wrapping_mul(0x9E3779B97F4A7C15) ^ black_pawns.wrapping_mul(0xC6A4A7935BD1E995)
+    }
+
     /// Get bitboard of pieces that are giving check.
     #[inline(always)]
     pub fn checkers(&self) -> Bitboard {

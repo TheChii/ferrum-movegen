@@ -253,6 +253,18 @@ impl MoveList {
         self.moves[..self.count].iter().copied()
     }
 
+    /// Get as a slice.
+    #[inline(always)]
+    pub fn as_slice(&self) -> &[Move] {
+        &self.moves[..self.count]
+    }
+
+    /// Get as a mutable slice.
+    #[inline(always)]
+    pub fn as_slice_mut(&mut self) -> &mut [Move] {
+        &mut self.moves[..self.count]
+    }
+
     /// Check if a move is in the list.
     pub fn contains(&self, mv: Move) -> bool {
         self.iter().any(|m| m.bits() == mv.bits())
